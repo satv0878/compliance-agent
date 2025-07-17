@@ -1,0 +1,63 @@
+{
+  "index_patterns": ["audit-*"],
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "index.lifecycle.name": "audit-policy",
+    "index.lifecycle.rollover_alias": "audit-write"
+  },
+  "mappings": {
+    "properties": {
+      "ts": {
+        "type": "date",
+        "format": "strict_date_time"
+      },
+      "message_id": {
+        "type": "keyword"
+      },
+      "msgType": {
+        "type": "keyword"
+      },
+      "sha256_payload": {
+        "type": "keyword"
+      },
+      "prevHash": {
+        "type": "keyword"
+      },
+      "chainHash": {
+        "type": "keyword"
+      },
+      "channel_id": {
+        "type": "keyword"
+      },
+      "severity": {
+        "type": "keyword"
+      },
+      "validation_data": {
+        "type": "object",
+        "enabled": false
+      },
+      "parsed_data": {
+        "type": "object",
+        "properties": {
+          "message_type": {
+            "type": "keyword"
+          },
+          "segments": {
+            "type": "object",
+            "properties": {
+              "PID": {
+                "type": "object",
+                "properties": {
+                  "patient_id": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
