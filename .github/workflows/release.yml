@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Compliance Agent ${{ github.ref }}
+          
+          Healthcare compliance monitoring system for DSGVO, KHZG, and EU-MDR requirements.
+          
+          ### Features
+          - Multi-protocol support (HL7 v2, DICOM, FHIR)
+          - Immutable hash-chain audit trail
+          - Automated compliance reporting
+          - Mirth Connect integration
+          - Real-time validation engine
+          
+          ### Installation
+          ```bash
+          git clone https://github.com/satv0878/compliance-agent.git
+          cd compliance-agent
+          git checkout ${{ github.ref }}
+          make setup
+          make up
+          ```
+          
+          ### Documentation
+          - [README](./README.md)
+          - [Mirth Integration](./docs/mirth-integration.md)
+          - [Deployment Guide](./DEPLOYMENT.md)
+        draft: false
+        prerelease: false
+    
+    - name: Build Docker images for release
+      run: |
+        docker-compose build
+        docker tag compliance-agent_ingress-service ghcr.io/satv0878/compliance-agent/ingress:${{ github.ref_name }}
+        docker tag compliance-agent_parser-service ghcr.io/satv0878/compliance-agent/parser:${{ github.ref_name }}
+        docker tag compliance-agent_validator-service ghcr.io/satv0878/compliance-agent/validator:${{ github.ref_name }}
+        docker tag compliance-agent_hashwriter-service ghcr.io/satv0878/compliance-agent/hashwriter:${{ github.ref_name }}
+        docker tag compliance-agent_reporter-service ghcr.io/satv0878/compliance-agent/reporter:${{ github.ref_name }}
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Push release images
+      run: |
+        docker push ghcr.io/satv0878/compliance-agent/ingress:${{ github.ref_name }}
+        docker push ghcr.io/satv0878/compliance-agent/parser:${{ github.ref_name }}
+        docker push ghcr.io/satv0878/compliance-agent/validator:${{ github.ref_name }}
+        docker push ghcr.io/satv0878/compliance-agent/hashwriter:${{ github.ref_name }}
+        docker push ghcr.io/satv0878/compliance-agent/reporter:${{ github.ref_name }}
