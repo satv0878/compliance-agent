@@ -2,13 +2,8 @@ server.name: compliance-kibana
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://elasticsearch:9200"]
-elasticsearch.username: "${ES_USERNAME}"
-elasticsearch.password: "${ES_PASSWORD}"
 
-# Security
-server.ssl.enabled: true
-server.ssl.certificate: /etc/kibana/certs/kibana.crt
-server.ssl.key: /etc/kibana/certs/kibana.key
+# Security disabled for development
 
 # Content Security Policy
 csp.strict: true

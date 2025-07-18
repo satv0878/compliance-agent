@@ -2,10 +2,15 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod ./
 RUN go mod download
-
-COPY main.go .
+COPY main.go ./
+RUN go get github.com/aws/aws-sdk-go/aws
+RUN go get github.com/aws/aws-sdk-go/aws/credentials  
+RUN go get github.com/aws/aws-sdk-go/aws/session
+RUN go get github.com/aws/aws-sdk-go/service/s3
+RUN go get github.com/elastic/go-elasticsearch/v7
+RUN go get github.com/gin-gonic/gin
 RUN go build -o hashwriter main.go
 
 FROM alpine:latest
