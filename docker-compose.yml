@@ -1,4 +1,5 @@
-version: '3.8'
+# Docker Compose configuration for Compliance Agent
+# Compatible with Windows, Linux, and macOS
 
 services:
   # Elasticsearch
@@ -18,10 +19,11 @@ services:
     networks:
       - compliance-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
   # Kibana
   kibana:
@@ -76,10 +78,11 @@ services:
     networks:
       - compliance-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
       interval: 30s
       timeout: 20s
       retries: 3
+      start_period: 30s
 
   # Ingress Service
   ingress-service:
