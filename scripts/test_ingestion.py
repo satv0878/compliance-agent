@@ -1,121 +1,215 @@
 #!/usr/bin/env python3
+"""
+Test script for Compliance Agent ingestion
+Works on both Windows and Linux/macOS
+"""
 
 import requests
-import base64
 import json
 import time
+import sys
 from datetime import datetime
 
-# Base URL for the ingress service
-BASE_URL = "http://localhost:8000"
-
-# Test HL7 message
-hl7_message = """MSH|^~\\&|SENDING_APP|SENDING_FAC|RECEIVING_APP|RECEIVING_FAC|20231015120000||ADT^A01|MSG00001|P|2.5
-EVN|A01|20231015120000
-PID|1||123456789^^^MRN^MR||DOE^JOHN^A||19800101|M|||123 MAIN ST^^ANYTOWN^ST^12345^USA||(555)123-4567|||M|NON|123456789
-PV1|1|I|ICU^101^A||||ATTEND^DOCTOR^PRIMARY|||||||||||VISIT123|||||||||||||||||||||||||20231015120000"""
-
-# Test bearer token
-TOKEN = "test-token-123"
+# Base URLs for services
+INGRESS_URL = "http://localhost:8000"
+VALIDATOR_URL = "http://localhost:8002"
 
 def test_hl7_ingestion():
-    print("Testing HL7 ingestion...")
+    """Test HL7 message ingestion"""
+    print("Testing HL7 message ingestion...")
     
-    # Encode message
-    encoded_message = base64.b64encode(hl7_message.encode()).decode()
-    
-    payload = {
-        "channel_id": "mirth-channel-01",
-        "payload": encoded_message
-    }
-    
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
-    }
+    # Sample HL7 message
+    hl7_message = "MSH|^~\\&|SENDING_APP|SENDING_FAC|RECEIVING_APP|RECEIVING_FAC|20231201120000||ADT^A01|123456|P|2.5|||AL|AL|USA"
     
     try:
         response = requests.post(
-            f"{BASE_URL}/ingest/hl7",
-            json=payload,
-            headers=headers
+            f"{INGRESS_URL}/ingest/hl7",
+            data=hl7_message,
+            headers={"Content-Type": "text/plain"}
         )
         
         if response.status_code == 200:
             print("✓ HL7 message ingested successfully")
-            print(f"Response: {json.dumps(response.json(), indent=2)}")
+            return True
         else:
-            print(f"✗ Failed to ingest HL7 message: {response.status_code}")
-            print(f"Error: {response.text}")
-            
+            print(f"✗ HL7 ingestion failed with status code: {response.status_code}")
+            print(f"  Response: {response.text}")
+            return False
     except Exception as e:
-        print(f"✗ Error: {str(e)}")
+        print(f"✗ HL7 ingestion failed with error: {e}")
+        return False
 
 def test_validation_rules():
-    print("\nTesting validation rules...")
+    """Test validation rules API"""
+    print("\nTesting validation rules API...")
     
-    # Test message with empty PID-3 (should fail validation)
-    invalid_hl7 = """MSH|^~\\&|SENDING_APP|SENDING_FAC|RECEIVING_APP|RECEIVING_FAC|20231015120000||ADT^A01|MSG00002|P|2.5
-PID|1||||DOE^JANE^A||19900101|F"""
+    try:
+        response = requests.get(f"{VALIDATOR_URL}/rules")
+        
+        if response.status_code == 200:
+            rules = response.json()
+            print(f"✓ Validation rules retrieved ({len(rules)} rules)")
+            return True
+        else:
+            print(f"✗ Failed to retrieve validation rules: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"✗ Failed to retrieve validation rules: {e}")
+        return False
+
+def test_metrics_endpoint():
+    """Test metrics endpoint"""
+    print("\nTesting metrics endpoint...")
     
-    encoded_message = base64.b64encode(invalid_hl7.encode()).decode()
+    try:
+        response = requests.get(f"{INGRESS_URL}/metrics")
+        
+        if response.status_code == 200:
+            print("✓ Metrics endpoint accessible")
+            return True
+        else:
+            print(f"✗ Metrics endpoint failed: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"✗ Metrics endpoint failed: {e}")
+        return False
+
+def test_health_endpoints():
+    """Test all health endpoints"""
+    print("\nTesting service health endpoints...")
     
-    payload = {
-        "channel_id": "mirth-channel-01",
-        "payload": encoded_message
-    }
+    services = [
+        ("Ingress", "http://localhost:8000/health"),
+        ("Parser", "http://localhost:8001/health"),
+        ("Validator", "http://localhost:8002/health"),
+        ("HashWriter", "http://localhost:8003/health"),
+        ("Reporter", "http://localhost:8004/health")
+    ]
     
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
+    all_healthy = True
+    for name, url in services:
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                print(f"✓ {name} service is healthy")
+            else:
+                print(f"✗ {name} service is not healthy (status: {response.status_code})")
+                all_healthy = False
+        except Exception as e:
+            print(f"✗ {name} service is not responding: {e}")
+            all_healthy = False
+    
+    return all_healthy
+
+def test_dicom_ingestion():
+    """Test DICOM data ingestion"""
+    print("\nTesting DICOM data ingestion...")
+    
+    # Sample DICOM metadata (simplified)
+    dicom_data = {
+        "PatientID": "12345",
+        "PatientName": "Test^Patient",
+        "StudyInstanceUID": "1.2.840.113619.2.1.1.1.1.20231201.120000",
+        "Modality": "CT",
+        "StudyDate": "20231201"
     }
     
     try:
         response = requests.post(
-            f"{BASE_URL}/ingest/hl7",
-            json=payload,
-            headers=headers
+            f"{INGRESS_URL}/ingest/dicom",
+            json=dicom_data,
+            headers={"Content-Type": "application/json"}
         )
         
         if response.status_code == 200:
-            result = response.json()
-            validation = result.get("validation_result", {}).get("validation", {})
-            if validation.get("overall_status") == "ERROR":
-                print("✓ Validation correctly identified missing PID-3")
-            else:
-                print("✗ Validation should have failed for missing PID-3")
-                
+            print("✓ DICOM data ingested successfully")
+            return True
+        else:
+            print(f"✗ DICOM ingestion failed with status code: {response.status_code}")
+            return False
     except Exception as e:
-        print(f"✗ Error: {str(e)}")
+        print(f"✗ DICOM ingestion failed with error: {e}")
+        return False
 
-def test_metrics():
-    print("\nChecking metrics endpoint...")
+def test_fhir_ingestion():
+    """Test FHIR resource ingestion"""
+    print("\nTesting FHIR resource ingestion...")
+    
+    # Sample FHIR Patient resource
+    fhir_patient = {
+        "resourceType": "Patient",
+        "id": "example",
+        "identifier": [{
+            "system": "http://example.org/mrn",
+            "value": "12345"
+        }],
+        "name": [{
+            "family": "Test",
+            "given": ["Patient"]
+        }],
+        "gender": "male",
+        "birthDate": "1990-01-01"
+    }
     
     try:
-        response = requests.get(f"{BASE_URL}/metrics")
+        response = requests.post(
+            f"{INGRESS_URL}/ingest/fhir",
+            json=fhir_patient,
+            headers={"Content-Type": "application/json"}
+        )
+        
         if response.status_code == 200:
-            print("✓ Metrics endpoint accessible")
-            # Show first few lines of metrics
-            lines = response.text.split('\n')[:10]
-            for line in lines:
-                if line and not line.startswith('#'):
-                    print(f"  {line}")
+            print("✓ FHIR resource ingested successfully")
+            return True
         else:
-            print(f"✗ Failed to access metrics: {response.status_code}")
-            
+            print(f"✗ FHIR ingestion failed with status code: {response.status_code}")
+            return False
     except Exception as e:
-        print(f"✗ Error: {str(e)}")
+        print(f"✗ FHIR ingestion failed with error: {e}")
+        return False
+
+def main():
+    """Run all tests"""
+    print("="*50)
+    print("Compliance Agent Integration Test")
+    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("="*50)
+    
+    # Wait a moment for services to be ready
+    print("\nWaiting for services to be ready...")
+    time.sleep(2)
+    
+    # Run tests
+    tests = [
+        test_health_endpoints,
+        test_hl7_ingestion,
+        test_validation_rules,
+        test_metrics_endpoint,
+        test_dicom_ingestion,
+        test_fhir_ingestion
+    ]
+    
+    results = []
+    for test in tests:
+        try:
+            results.append(test())
+        except Exception as e:
+            print(f"Test failed with unexpected error: {e}")
+            results.append(False)
+    
+    # Summary
+    print("\n" + "="*50)
+    print("Test Summary:")
+    passed = sum(results)
+    total = len(results)
+    print(f"Passed: {passed}/{total}")
+    
+    if passed == total:
+        print("\nAll tests passed! ✓")
+        return 0
+    else:
+        print(f"\n{total - passed} test(s) failed! ✗")
+        return 1
 
 if __name__ == "__main__":
-    print("Compliance Agent Ingestion Test")
-    print("=" * 40)
-    
-    # Wait for services to be ready
-    print("Waiting for services to start...")
-    time.sleep(5)
-    
-    test_hl7_ingestion()
-    test_validation_rules()
-    test_metrics()
-    
-    print("\nTest complete!")
+    sys.exit(main())

@@ -14,11 +14,30 @@ A passive monitoring system for healthcare data integration that ensures regulat
 ## Quick Start
 
 1. **Prerequisites**
-   - Docker & Docker Compose
+   - Docker Desktop (Windows) or Docker & Docker Compose (Linux)
    - 8GB RAM minimum
    - 20GB disk space
+   - Python 3.8+ (for test scripts)
 
 2. **Setup**
+
+   ### Windows
+   ```batch
+   # Clone repository
+   git clone <repository-url>
+   cd compliance-agent
+
+   # Copy environment configuration
+   copy .env.example .env
+
+   # Run setup script
+   scripts\setup.bat
+
+   # Start services
+   docker-compose up -d
+   ```
+
+   ### Linux/macOS
    ```bash
    # Clone repository
    git clone <repository-url>
@@ -27,22 +46,29 @@ A passive monitoring system for healthcare data integration that ensures regulat
    # Copy environment configuration
    cp .env.example .env
 
-   # Start services
-   docker-compose up -d
-
    # Run setup script
    chmod +x scripts/setup.sh
    ./scripts/setup.sh
+
+   # Start services
+   docker-compose up -d
    ```
 
 3. **Test Installation**
+
+   ### Windows
+   ```batch
+   # Check service health
+   scripts\check_health.bat
+
+   # Run ingestion test
+   python scripts\test_ingestion.py
+   ```
+
+   ### Linux/macOS
    ```bash
    # Check service health
-   curl http://localhost:8000/health
-   curl http://localhost:8001/health
-   curl http://localhost:8002/health
-   curl http://localhost:8003/health
-   curl http://localhost:8004/health
+   ./scripts/check_health.sh
 
    # Run ingestion test
    python3 scripts/test_ingestion.py
